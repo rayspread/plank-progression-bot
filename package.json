@@ -10,6 +10,10 @@
     "telegraf": "^4.4.2",
     "dotenv": "^10.0.0",
     "ts-node": "^10.2.1",
-    "typescript": "^4.4.3"
+    "typescript": "^4.4.3",
+    "pg-promise": "^10.10.2",
+    "@types/pg-promise": "^2.11.3"
   }
 }
+
+
