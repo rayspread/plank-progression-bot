@@ -1,0 +1,15 @@
+{
+  "name": "plank-progression-bot",
+  "version": "1.0.0",
+  "description": "A bot to track plank exercise progression.",
+  "main": "server.ts",
+  "scripts": {
+    "start": "ts-node server.ts"
+  },
+  "dependencies": {
+    "telegraf": "^4.4.2",
+    "dotenv": "^10.0.0",
+    "ts-node": "^10.2.1",
+    "typescript": "^4.4.3"
+  }
+}
