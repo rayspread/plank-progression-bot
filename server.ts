@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { initializeDatabase } from './database';
 
 import { Telegraf } from 'telegraf';
