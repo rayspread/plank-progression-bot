@@ -83,3 +83,34 @@ bot.command('reset', async (ctx) => {
 });
 
 bot.launch();
+
+
+
+bot.command('startPlank', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    try {
+        const user = await db.oneOrNone('SELECT plank_time FROM users WHERE user_id = $1', [userId]);
+        const plankTime = user ? user.plank_time : 60;
+
+        // Отправляем начальное сообщение
+        ctx.reply(`Начинаем планку на ${plankTime} секунд!`);
+
+        // Отправляем обратный отсчет каждую секунду
+        for (let i = plankTime; i > 0; i--) {
+            setTimeout(() => {
+                ctx.reply(`${i}...`);
+            }, (plankTime - i) * 1000);
+        }
+
+        // Отправляем сообщение о завершении планки
+        setTimeout(() => {
+            ctx.reply('Планка завершена! Отличная работа!');
+        }, plankTime * 1000);
+
+    } catch (error) {
+        console.error("Error during plank:", error);
+    }
+});
+
