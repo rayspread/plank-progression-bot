@@ -3,6 +3,13 @@ dotenv.config();
 
 import { initializeDatabase } from './database';
 
+try {
+    initializeDatabase();
+} catch (error) {
+    console.error("Failed to initialize database:", error);
+    process.exit(1);
+}
+
 import { Telegraf } from 'telegraf';
 import pgPromise from 'pg-promise';
 
@@ -21,7 +28,9 @@ db.none(`CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     user_id INTEGER UNIQUE,
     plank_time INTEGER DEFAULT 60
-)`);
+)`).catch(error => {
+    console.error("Failed to create table:", error);
+});
 
 bot.start((ctx) => {
     console.log("Received /start command");
@@ -32,38 +41,45 @@ bot.command('status', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    const user = await db.oneOrNone('SELECT plank_time FROM users WHERE user_id = $1', [userId]);
-    const time = user ? user.plank_time : 60;
-    ctx.reply(`Ваш текущий рекорд планки: ${time} секунд.`);
+    try {
+        const user = await db.oneOrNone('SELECT plank_time FROM users WHERE user_id = $1', [userId]);
+        const time = user ? user.plank_time : 60;
+        ctx.reply(`Ваш текущий рекорд планки: ${time} секунд.`);
+    } catch (error) {
+        console.error("Error fetching user status:", error);
+    }
 });
 
 bot.command('increase', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    const user = await db.oneOrNone('SELECT plank_time FROM users WHERE user_id = $1', [userId]);
-    const newTime = (user ? user.plank_time : 60) + 10;
+    try {
+        const user = await db.oneOrNone('SELECT plank_time FROM users WHERE user_id = $1', [userId]);
+        const newTime = (user ? user.plank_time : 60) + 10;
 
-    if (user) {
-        await db.none('UPDATE users SET plank_time = $1 WHERE user_id = $2', [newTime, userId]);
-    } else {
-        await db.none('INSERT INTO users(user_id, plank_time) VALUES($1, $2)', [userId, newTime]);
+        if (user) {
+            await db.none('UPDATE users SET plank_time = $1 WHERE user_id = $2', [newTime, userId]);
+        } else {
+            await db.none('INSERT INTO users(user_id, plank_time) VALUES($1, $2)', [userId, newTime]);
+        }
+
+        ctx.reply(`Отлично! Ваш новый рекорд планки: ${newTime} секунд.`);
+    } catch (error) {
+        console.error("Error updating user plank time:", error);
     }
-
-    ctx.reply(`Отлично! Ваш новый рекорд планки: ${newTime} секунд.`);
 });
 
 bot.command('reset', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    await db.none('UPDATE users SET plank_time = 60 WHERE user_id = $1', [userId]);
-    ctx.reply('Ваш рекорд планки был сброшен до 1 минуты.');
+    try {
+        await db.none('UPDATE users SET plank_time = 60 WHERE user_id = $1', [userId]);
+        ctx.reply('Ваш рекорд планки был сброшен до 1 минуты.');
+    } catch (error) {
+        console.error("Error resetting user plank time:", error);
+    }
 });
 
 bot.launch();
-
-initializeDatabase().catch(error => {
-    console.error("Failed to initialize database:", error);
-    process.exit(1);
-});
