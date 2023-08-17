@@ -23,7 +23,10 @@ db.none(`CREATE TABLE IF NOT EXISTS users (
     plank_time INTEGER DEFAULT 60
 )`);
 
-bot.start((ctx) => ctx.reply('Добро пожаловать в Plank Progression! Начните с 1 минуты планки и добавляйте 10 секунд каждый день.'));
+bot.start((ctx) => {
+    console.log("Received /start command");
+    ctx.reply('Добро пожаловать в Plank Progression! Начните с 1 минуты планки и добавляйте 10 секунд каждый день.');
+});
 
 bot.command('status', async (ctx) => {
     const userId = ctx.from?.id;
