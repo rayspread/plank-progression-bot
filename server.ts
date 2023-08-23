@@ -1,17 +1,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { initializeDatabase } from './database';
-
-try {
-    initializeDatabase();
-} catch (error) {
-    console.error("Failed to initialize database:", error);
-    process.exit(1);
-}
-
+import { initializeDatabase, getUser, updateUser, createUser } from './database';
 import { Telegraf } from 'telegraf';
-import pgPromise from 'pg-promise';
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -21,96 +12,60 @@ if (!BOT_TOKEN || !DATABASE_URL) {
 }
 
 const bot = new Telegraf(BOT_TOKEN);
-const db = pgPromise()({ connectionString: DATABASE_URL });
 
-// Создание таблицы при первом запуске
-db.none(`CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER UNIQUE,
-    plank_time INTEGER DEFAULT 60
-)`).catch(error => {
-    console.error("Failed to create table:", error);
-});
+bot.start(async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
 
-bot.start((ctx) => {
-    console.log("Received /start command");
-    ctx.reply('Добро пожаловать в Plank Progression! Начните с 1 минуты планки и добавляйте 10 секунд каждый день.');
+    const user = await getUser(userId);
+    if (user) {
+        ctx.reply('Добро пожаловать обратно в Plank Progression!');
+    } else {
+        createUser(userId);
+        ctx.reply('Добро пожаловать в Plank Progression! Начните с 1 минуты планки и добавляйте 10 секунд каждый день.');
+    }
 });
 
 bot.command('status', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    try {
-        const user = await db.oneOrNone('SELECT plank_time FROM users WHERE user_id = $1', [userId]);
-        const time = user ? user.plank_time : 60;
-        ctx.reply(`Ваш текущий рекорд планки: ${time} секунд.`);
-    } catch (error) {
-        console.error("Error fetching user status:", error);
-    }
+    const user = await getUser(userId);
+    const time = user ? user.plank_time : 60;
+    ctx.reply(`Ваш текущий рекорд планки: ${time} секунд.`);
 });
 
 bot.command('increase', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    try {
-        const user = await db.oneOrNone('SELECT plank_time FROM users WHERE user_id = $1', [userId]);
-        const newTime = (user ? user.plank_time : 60) + 10;
+    const user = await getUser(userId);
+    const newTime = (user ? user.plank_time : 60) + 10;
 
-        if (user) {
-            await db.none('UPDATE users SET plank_time = $1 WHERE user_id = $2', [newTime, userId]);
-        } else {
-            await db.none('INSERT INTO users(user_id, plank_time) VALUES($1, $2)', [userId, newTime]);
-        }
-
-        ctx.reply(`Отлично! Ваш новый рекорд планки: ${newTime} секунд.`);
-    } catch (error) {
-        console.error("Error updating user plank time:", error);
+    if (user) {
+        await updateUser(userId, newTime);
+    } else {
+        await createUser(userId);
+        await updateUser(userId, newTime);
     }
+
+    ctx.reply(`Отлично! Ваш новый рекорд планки: ${newTime} секунд.`);
 });
 
 bot.command('reset', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    try {
-        await db.none('UPDATE users SET plank_time = 60 WHERE user_id = $1', [userId]);
-        ctx.reply('Ваш рекорд планки был сброшен до 1 минуты.');
-    } catch (error) {
-        console.error("Error resetting user plank time:", error);
-    }
+    await updateUser(userId, 60);
+    ctx.reply('Ваш рекорд планки был сброшен до 1 минуты.');
 });
 
 bot.launch();
 
-
-
-bot.command('startPlank', async (ctx) => {
-    const userId = ctx.from?.id;
-    if (!userId) return;
-
-    try {
-        const user = await db.oneOrNone('SELECT plank_time FROM users WHERE user_id = $1', [userId]);
-        const plankTime = user ? user.plank_time : 60;
-
-        // Отправляем начальное сообщение
-        ctx.reply(`Начинаем планку на ${plankTime} секунд!`);
-
-        // Отправляем обратный отсчет каждую секунду
-        for (let i = plankTime; i > 0; i--) {
-            setTimeout(() => {
-                ctx.reply(`${i}...`);
-            }, (plankTime - i) * 1000);
-        }
-
-        // Отправляем сообщение о завершении планки
-        setTimeout(() => {
-            ctx.reply('Планка завершена! Отличная работа!');
-        }, plankTime * 1000);
-
-    } catch (error) {
-        console.error("Error during plank:", error);
-    }
-});
-
+// Инициализация базы данных
+try {
+    initializeDatabase();
+} catch (error) {
+    console.error("Failed to initialize database:", error);
+    process.exit(1);
+}
